@@ -9,6 +9,9 @@
 #include <string>
 #include <unistd.h>
 
+static void eff_initialize (void)  __attribute__((constructor));
+static int eff_fprintf(FILE * __restrict__ stream, const char * __restrict__ format, ...);
+static int eff_vfprintf(FILE * __restrict__ stream, const char * __restrict__ format, va_list ap); 
 
 static constexpr unsigned sample_rate = 16000;
 static constexpr unsigned max_seconds = 5;
@@ -78,10 +81,8 @@ play(__attribute__((unused)) const void* in,
   return paContinue;
 }
 
-int eff_fprintf(FILE * __restrict__ stream, const char * __restrict__ format, ...);
-int eff_vfprintf(FILE * __restrict__ stream, const char * __restrict__ format, va_list ap); 
 
-void
+static void
 record_audio()
 {
   assert(NULL != w);
@@ -118,7 +119,7 @@ record_audio()
   assert(0 == retval);
 }
 
-void
+static void
 play_audio()
 {
   // record buffer length
@@ -138,7 +139,7 @@ play_audio()
   assert(0 == retval);
 }
 
-bool
+static bool
 is_retry()
 {
   assert(NULL != w);
@@ -146,7 +147,7 @@ is_retry()
   assert(ERR != retval);
   retval = cbreak();
   assert(ERR != retval);
-  retval = eff_fprintf(stdout, "Do you want to record your response again?\n");
+  retval = eff_fprintf(stdout, "Press enter if you want to record again. Press any other key to continue.\n");
   assert(0 != retval);
   int key = wgetch(w);
   assert(ERR != retval);
@@ -157,7 +158,7 @@ is_retry()
   return key == '\n';
 }
 
-char*
+static char*
 eff_fgets(char * __restrict__ str, int size, FILE * __restrict__ stream)
 {
   if (!is_enabled || stream != stdin) return fgets(str, size, stream);
@@ -173,7 +174,7 @@ eff_fgets(char * __restrict__ str, int size, FILE * __restrict__ stream)
     unsigned int buffer_size = static_cast<unsigned int>(data.rec_length);
     input = DS_SpeechToText(ctx, data.buffer, buffer_size);
     assert(NULL != input);
-    retval = eff_fprintf(stdout, "We believe you said: %s\n", input);
+    retval = eff_fprintf(stdout, "Deep-speech understood: %s\n", input);
     assert(0 <= retval);
     retval = wrefresh(w);
     assert(ERR != retval);
@@ -184,7 +185,7 @@ eff_fgets(char * __restrict__ str, int size, FILE * __restrict__ stream)
   return str;
 }
 
-int
+static int
 eff_vfprintf(FILE * __restrict__ stream, const char * __restrict__ format, va_list ap)
 {
   assert(stream && format);
@@ -205,7 +206,7 @@ eff_vfprintf(FILE * __restrict__ stream, const char * __restrict__ format, va_li
   return retval;
 }
 
-int
+static int
 eff_fprintf(FILE * __restrict__ stream, const char * __restrict__ format, ...)
 {
   assert(stream && format);
@@ -227,15 +228,13 @@ finish:
 
 static void eff_shutdown();
 
-void eff_initialize (void)  __attribute__((constructor));
-void
+static void
 eff_initialize()
 {
   int fd = fileno(stdout);
   is_enabled = isatty(fd);
   if (!is_enabled) return;
 
-  // TODO: Once per program...
   // We are only going to do this if isatty
   int retval = Pa_Initialize();
   assert(0 == retval);
@@ -265,7 +264,8 @@ eff_shutdown()
   DS_FreeModel(ctx);
 }
 
-int fprintf(FILE * __restrict__ stream, const char * __restrict__ format, ...)
+int
+fprintf(FILE * __restrict__ stream, const char * __restrict__ format, ...)
 {
   va_list args;
   va_start (args, format);
@@ -274,7 +274,8 @@ int fprintf(FILE * __restrict__ stream, const char * __restrict__ format, ...)
   return retval;
 }
 
-char* fgets(char * __restrict__ str, int size, FILE * __restrict__ stream)
+char*
+fgets(char * __restrict__ str, int size, FILE * __restrict__ stream)
 {
   return eff_fgets(str, size, stream);
 }
