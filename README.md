@@ -1,6 +1,6 @@
 # Speech-in Speech-Out
 
-Proof of concept repo that allows one to replace the standard fgets and fprintf functions with implementations that allow the user to input via speech and the program to output via voice synthesis.
+Proof of concept repo that allows one to replace the standard fgets and fprintf functions with implementations that allow the user to input via speech recognition and the program to output via voice synthesis.
 
 ## Dependencies
 
