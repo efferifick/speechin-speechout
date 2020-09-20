@@ -79,6 +79,7 @@ play(__attribute__((unused)) const void* in,
 }
 
 int eff_fprintf(FILE * __restrict__ stream, const char * __restrict__ format, ...);
+int eff_vfprintf(FILE * __restrict__ stream, const char * __restrict__ format, va_list ap); 
 
 void
 record_audio()
@@ -184,21 +185,16 @@ eff_fgets(char * __restrict__ str, int size, FILE * __restrict__ stream)
 }
 
 int
-eff_fprintf(FILE * __restrict__ stream, const char * __restrict__ format, ...)
+eff_vfprintf(FILE * __restrict__ stream, const char * __restrict__ format, va_list ap)
 {
   assert(stream && format);
-  va_list args;
-  va_start (args, format);
-  int retval = 0;
-  char *temp = NULL;
-  int status = 0;
-  if (!is_enabled) goto stdexec;
-  if (stream != stdout) goto stdexec;
+  if (!is_enabled || stream != stdout) return vfprintf(stream, format, ap);
 
-  retval = vasprintf(&temp, format, args);
+  char *temp;
+  int retval = vasprintf(&temp, format, ap);
   assert(NULL != temp);
   assert(0 <= retval);
-  status = wprintw(w, temp);
+  int status = wprintw(w, temp);
   assert(ERR != status);
   status = wrefresh(w);
   assert(ERR != status);
@@ -206,6 +202,20 @@ eff_fprintf(FILE * __restrict__ stream, const char * __restrict__ format, ...)
   assert(EE_OK == status);
   free(temp);
   assert(NULL != w);
+  return retval;
+}
+
+int
+eff_fprintf(FILE * __restrict__ stream, const char * __restrict__ format, ...)
+{
+  assert(stream && format);
+  va_list args;
+  va_start (args, format);
+  int retval = 0;
+  if (!is_enabled) goto stdexec;
+  if (stream != stdout) goto stdexec;
+
+  retval = eff_vfprintf(stream, format, args);
   goto finish;
 
 stdexec: 
@@ -217,7 +227,8 @@ finish:
 
 static void eff_shutdown();
 
-static void
+void eff_initialize (void)  __attribute__((constructor));
+void
 eff_initialize()
 {
   int fd = fileno(stdout);
@@ -254,15 +265,17 @@ eff_shutdown()
   DS_FreeModel(ctx);
 }
 
-int
-main(int argc, char** argv)
+int fprintf(FILE * __restrict__ stream, const char * __restrict__ format, ...)
 {
-  errno = 0;
-  eff_initialize();
-  eff_fprintf(stdout, "What is your name?\n");
-  char buff[100] = { 0 };
-  eff_fgets(buff, 100, stdin);
-  eff_fprintf(stdout, "Hello %s\n", buff);
-  exit (EXIT_SUCCESS);
-  return 0;
+  va_list args;
+  va_start (args, format);
+  int retval = eff_vfprintf(stream, format, args);
+  va_end (args);
+  return retval;
 }
+
+char* fgets(char * __restrict__ str, int size, FILE * __restrict__ stream)
+{
+  return eff_fgets(str, size, stream);
+}
+
